@@ -9,7 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"os"
+	"syscall/js"
 
 	"github.com/nfnt/resize"
 	api "github.com/pdfcpu/pdfcpu/pkg/api"
@@ -71,66 +71,92 @@ func createImageResource(xRefTable *pdfcpu.XRefTable, r io.Reader) (*pdfcpu.Indi
 
 	return indRef, w, h, nil
 }
+
+var done = make(chan struct{})
+
 func main() {
-	ctx, err := pdfcpu.ReadFile("test2.pdf", pdfcpu.NewDefaultConfiguration())
-	if err != nil {
-		fmt.Println("Error", err)
-	}
-	//fmt.Println(ctx)
-	ctx.EnsurePageCount()
-	count := ctx.PageCount
-	pdfcpu.OptimizeXRefTable(ctx)
-	fmt.Println(count)
-	images := make([]CompressedImage, 0)
-	for i := 1; i <= count; i++ {
-		fmt.Println(i)
-		for _, objNr := range ctx.ImageObjNrs(i) {
-			fmt.Println(objNr)
-			imageO := ctx.Optimize.ImageObjects[objNr]
-			imageF, _ := ctx.ExtractImage(objNr)
-			fmt.Println(imageF.Name)
-			image1, format, err := image.Decode(imageF)
-			fmt.Println(format)
-			if err != nil {
-				fmt.Println("e", err)
-			}
-			fmt.Println(image1.Bounds().Dx(), image1.Bounds().Dy())
-			if image1.Bounds().Dx() > 1000 {
-				smaller := resize.Resize(uint(image1.Bounds().Dx()/2.0), 0, image1, resize.Lanczos2)
-				var b bytes.Buffer
-				w := bufio.NewWriter(&b)
-				err := jpeg.Encode(w, smaller, nil)
-				images = append(images, CompressedImage{Image: smaller, ObjNr: objNr})
-				if err != nil {
-					fmt.Println(err)
-				}
-				ctx.DeleteObject(objNr)
-				buf := new(bytes.Buffer)
-				err = jpeg.Encode(buf, smaller, nil)
-				images[len(images)-1].Ref, _, _, _ = createImageResource(ctx.XRefTable, buf)
-				//imageO.ImageDict.StreamLength
-			}
-			fmt.Println(imageO.ImageDict.FilterPipeline[0].Name)
-			//imageO.ImageDict.Raw =
+	window := js.Global()
+	doc := window.Get("document")
+	body := doc.Get("body")
+	div := doc.Call("createElement", "div")
+	div.Set("textContent", "hello!!")
+	body.Call("appendChild", div)
+
+	onImgLoadCb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		fmt.Println("called")
+		fmt.Println(args[0].Get("length").Int())
+		array := make([]byte, args[0].Get("length").Int())
+		js.CopyBytesToGo(array, args[0])
+		buffi := bytes.NewReader(array)
+		ctx, err := pdfcpu.Read(buffi, pdfcpu.NewDefaultConfiguration())
+		if err != nil {
+			fmt.Println("Error", err)
 		}
+		//fmt.Println(ctx)
+		ctx.EnsurePageCount()
+		count := ctx.PageCount
+		pdfcpu.OptimizeXRefTable(ctx)
+		fmt.Println(count)
+		images := make([]CompressedImage, 0)
+
+		for i := 1; i <= count; i++ {
+			fmt.Println(i)
+			for _, objNr := range ctx.ImageObjNrs(i) {
+				fmt.Println(objNr)
+				imageO := ctx.Optimize.ImageObjects[objNr]
+				imageF, _ := ctx.ExtractImage(objNr)
+				fmt.Println(imageF.Name)
+				image1, format, err := image.Decode(imageF)
+				fmt.Println(format)
+				if err != nil {
+					fmt.Println("e", err)
+				}
+				fmt.Println(image1.Bounds().Dx(), image1.Bounds().Dy())
+				if image1.Bounds().Dx() > 1000 {
+					smaller := resize.Resize(uint(image1.Bounds().Dx()/2.0), 0, image1, resize.Lanczos2)
+					var b bytes.Buffer
+					w := bufio.NewWriter(&b)
+					err := jpeg.Encode(w, smaller, nil)
+					images = append(images, CompressedImage{Image: smaller, ObjNr: objNr})
+					if err != nil {
+						fmt.Println(err)
+					}
+					ctx.DeleteObject(objNr)
+					buf := new(bytes.Buffer)
+					err = jpeg.Encode(buf, smaller, nil)
+					images[len(images)-1].Ref, _, _, _ = createImageResource(ctx.XRefTable, buf)
+					//imageO.ImageDict.StreamLength
+				}
+				fmt.Println(imageO.ImageDict.FilterPipeline[0].Name)
+				//imageO.ImageDict.Raw =
+			}
+
+		}
+		/*fmt.Println(ctx.XRefTable.FindObject(1))
+		root, _ := ctx.XRefTable.FindObject(int(ctx.Root.ObjectNumber))
+		fmt.Println((root.(pdfcpu.Dict)["Pages"]).(pdfcpu.IndirectRef).ObjectNumber)
+		rootPages, _ := ctx.XRefTable.FindObject(int((root.(pdfcpu.Dict)["Pages"]).(pdfcpu.IndirectRef).ObjectNumber))
+		fmt.Println(rootPages.(pdfcpu.Dict).ArrayEntry("Kids"))
+		for _, pageR := range rootPages.(pdfcpu.Dict).ArrayEntry("Kids") {
+			page, _ := ctx.FindObject(int(pageR.(pdfcpu.IndirectRef).ObjectNumber))
+			fmt.Println(page)
+			resources, _ := ctx.FindObject(int(page.(pdfcpu.Dict)["Resources"].(pdfcpu.IndirectRef).ObjectNumber))
+			fmt.Println(resources)
+			n := resources.(pdfcpu.Dict)["XObject"]
+			fmt.Println(reflect.TypeOf(n.(pdfcpu.Dict)["Img1"]))
+		}*/
+		ctx.EnsureVersionForWriting()
+
+		wr := new(bytes.Buffer)
+		api.WriteContext(ctx, wr)
+		js.CopyBytesToJS(args[0], wr.Bytes())
+		args[1].Set("l", len(wr.Bytes()))
+		return len(wr.Bytes())
+	})
+
+	js.Global().Set("loadImage", onImgLoadCb)
+	<-done
+	if false {
 
 	}
-	/*fmt.Println(ctx.XRefTable.FindObject(1))
-	root, _ := ctx.XRefTable.FindObject(int(ctx.Root.ObjectNumber))
-	fmt.Println((root.(pdfcpu.Dict)["Pages"]).(pdfcpu.IndirectRef).ObjectNumber)
-	rootPages, _ := ctx.XRefTable.FindObject(int((root.(pdfcpu.Dict)["Pages"]).(pdfcpu.IndirectRef).ObjectNumber))
-	fmt.Println(rootPages.(pdfcpu.Dict).ArrayEntry("Kids"))
-	for _, pageR := range rootPages.(pdfcpu.Dict).ArrayEntry("Kids") {
-		page, _ := ctx.FindObject(int(pageR.(pdfcpu.IndirectRef).ObjectNumber))
-		fmt.Println(page)
-		resources, _ := ctx.FindObject(int(page.(pdfcpu.Dict)["Resources"].(pdfcpu.IndirectRef).ObjectNumber))
-		fmt.Println(resources)
-		n := resources.(pdfcpu.Dict)["XObject"]
-		fmt.Println(reflect.TypeOf(n.(pdfcpu.Dict)["Img1"]))
-	}*/
-	ctx.EnsureVersionForWriting()
-	f, err := os.Create("fixed2.pdf")
-	defer f.Close()
-	wr := bufio.NewWriter(f)
-	api.WriteContext(ctx, wr)
 }
