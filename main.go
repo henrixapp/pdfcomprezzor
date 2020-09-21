@@ -91,7 +91,7 @@ func Log(a ...interface{}) {
 	time.Sleep(200 * time.Millisecond)
 }
 func main() {
-	onImgLoadCb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	onCompress := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		LogCallback = args[len(args)-1:][0]
 		Log("called")
 		Log("File size in Bytes:", args[0].Get("length").Int())
@@ -124,11 +124,12 @@ func main() {
 				Log("Image size:", image1.Bounds().Dx(), image1.Bounds().Dy())
 				if image1.Bounds().Dx() > 1000 {
 					Log("Compress this image.....")
-					smaller := resize.Resize(uint(image1.Bounds().Dx()/2.0), 0, image1, resize.Lanczos2)
+					smaller := resize.Thumbnail(1240, 1754, image1, resize.Lanczos2)
+					//smaller := resize.Resize(uint(image1.Bounds().Dx()/2.0), 0, image1, resize.Lanczos2)
 					var b bytes.Buffer
 					w := bufio.NewWriter(&b)
 					err := jpeg.Encode(w, smaller, nil)
-					images = append(images, CompressedImage{Image: smaller, ObjNr: objNr})
+					images = append(images, CompressedImage{ObjNr: objNr})
 					if err != nil {
 						Log("Error enconding", err)
 					}
@@ -164,7 +165,7 @@ func main() {
 		return len(wr.Bytes())
 	})
 
-	js.Global().Set("loadImage", onImgLoadCb)
+	js.Global().Set("compress", onCompress)
 	<-done
 	if false {
 
