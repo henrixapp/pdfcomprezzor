@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"syscall/js"
+	"time"
 
 	"github.com/nfnt/resize"
 	api "github.com/pdfcpu/pdfcpu/pkg/api"
@@ -74,52 +75,62 @@ func createImageResource(xRefTable *pdfcpu.XRefTable, r io.Reader) (*pdfcpu.Indi
 
 var done = make(chan struct{})
 
-func main() {
-	window := js.Global()
-	doc := window.Get("document")
-	body := doc.Get("body")
-	div := doc.Call("createElement", "div")
-	div.Set("textContent", "hello!!")
-	body.Call("appendChild", div)
+//var body js.Value
+//var doc js.Value
+var LogCallback js.Value
 
+func Log(a ...interface{}) {
+
+	if !LogCallback.IsUndefined() {
+		LogCallback.Invoke(js.Null(), fmt.Sprint(a))
+	} else {
+		/*div := doc.Call("createElement", "div")
+		div.Set("textContent", fmt.Sprint(a))
+		body.Call("appendChild", div)*/
+	}
+	time.Sleep(200 * time.Millisecond)
+}
+func main() {
 	onImgLoadCb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fmt.Println("called")
-		fmt.Println(args[0].Get("length").Int())
+		LogCallback = args[len(args)-1:][0]
+		Log("called")
+		Log("File size in Bytes:", args[0].Get("length").Int())
 		array := make([]byte, args[0].Get("length").Int())
 		js.CopyBytesToGo(array, args[0])
 		buffi := bytes.NewReader(array)
 		ctx, err := pdfcpu.Read(buffi, pdfcpu.NewDefaultConfiguration())
 		if err != nil {
-			fmt.Println("Error", err)
+			Log("Error while loading file", err)
 		}
-		//fmt.Println(ctx)
+		//Log(ctx)
 		ctx.EnsurePageCount()
 		count := ctx.PageCount
 		pdfcpu.OptimizeXRefTable(ctx)
-		fmt.Println(count)
+		Log("Page count:", count)
 		images := make([]CompressedImage, 0)
 
 		for i := 1; i <= count; i++ {
-			fmt.Println(i)
-			for _, objNr := range ctx.ImageObjNrs(i) {
-				fmt.Println(objNr)
-				imageO := ctx.Optimize.ImageObjects[objNr]
+			Log("Processing page no:", i)
+			imageObjNrs := ctx.ImageObjNrs(i)
+			Log("Images on page:", len(imageObjNrs))
+			for _, objNr := range imageObjNrs {
 				imageF, _ := ctx.ExtractImage(objNr)
-				fmt.Println(imageF.Name)
+				Log("Image file name:", imageF.Name)
 				image1, format, err := image.Decode(imageF)
-				fmt.Println(format)
+				Log("Image format:", format)
 				if err != nil {
-					fmt.Println("e", err)
+					Log("e", err)
 				}
-				fmt.Println(image1.Bounds().Dx(), image1.Bounds().Dy())
+				Log("Image size:", image1.Bounds().Dx(), image1.Bounds().Dy())
 				if image1.Bounds().Dx() > 1000 {
+					Log("Compress this image.....")
 					smaller := resize.Resize(uint(image1.Bounds().Dx()/2.0), 0, image1, resize.Lanczos2)
 					var b bytes.Buffer
 					w := bufio.NewWriter(&b)
 					err := jpeg.Encode(w, smaller, nil)
 					images = append(images, CompressedImage{Image: smaller, ObjNr: objNr})
 					if err != nil {
-						fmt.Println(err)
+						Log("Error enconding", err)
 					}
 					ctx.DeleteObject(objNr)
 					buf := new(bytes.Buffer)
@@ -127,7 +138,6 @@ func main() {
 					images[len(images)-1].Ref, _, _, _ = createImageResource(ctx.XRefTable, buf)
 					//imageO.ImageDict.StreamLength
 				}
-				fmt.Println(imageO.ImageDict.FilterPipeline[0].Name)
 				//imageO.ImageDict.Raw =
 			}
 
@@ -146,7 +156,7 @@ func main() {
 			fmt.Println(reflect.TypeOf(n.(pdfcpu.Dict)["Img1"]))
 		}*/
 		ctx.EnsureVersionForWriting()
-
+		Log("Write file...")
 		wr := new(bytes.Buffer)
 		api.WriteContext(ctx, wr)
 		js.CopyBytesToJS(args[0], wr.Bytes())

@@ -1,7 +1,6 @@
 <html>
 <head>
 <meta charset="utf-8">
-<script src="wasm_exec.js"></script>
 <script>
 
 downloadBlob = function(data, fileName, mimeType) {
@@ -26,30 +25,34 @@ downloadURL = function(data, fileName) {
   a.click();
   a.remove();
 };
-    if (!WebAssembly.instantiateStreaming) { // polyfill
-        WebAssembly.instantiateStreaming = async (resp, importObject) => {
-            const source = await (await resp).arrayBuffer()
-            return await WebAssembly.instantiate(source, importObject)
-        }
-    }
-    const go = new Go();
-    WebAssembly.instantiateStreaming(fetch("pdfcomprezzor.wasm"), go.importObject).then((result) => {
-        go.run(result.instance);
-    });
+    
     function fn () {
     document.querySelector('input').addEventListener('change', function() {
     var array;
   var reader = new FileReader();
   reader.onload = function() {
-
+    let div = document.createElement( "div");
+	div.textContent ="Loaded File, Now executing, sadly no live-log";
+    document.querySelector("body").appendChild(div);
     var arrayBuffer = this.result;
     array = new Uint8Array(arrayBuffer);
     console.log(array);
     var l={l:0};
-    console.log(loadImage(array,l));
-    result = array.slice(0,l.l);
-    console.log(l);
-    downloadBlob(result,"smaller.pdf","application/pdf");
+    var worker = new Worker('worker.js');
+
+worker.addEventListener('message', function(e) {
+  console.log('Worker said: ', e);
+  if(e.data.type=="log"){
+  let div = document.createElement( "div");
+	div.textContent =e.data.message;
+    document.querySelector("body").appendChild(div);
+  } else if (e.data.type=="result"){
+   console.log(l);
+   alert(`TOOK: ${e.data.time}`)
+    downloadBlob(e.data.result,"smaller.pdf","application/pdf");
+    }
+}, false);
+worker.postMessage({array,l});
   }
   reader.readAsArrayBuffer(this.files[0]);
 
