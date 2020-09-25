@@ -1,12 +1,13 @@
 # pdfcomprezzor
 
-Simple WASM-Program to compress pdffiles with pictures in browser, based on pdfcpu. The programm replaces all images that are bigger than 1240x1754 are resized to this size and converted to JPG. This is done using pdfcpu. We decode, compress, delete and insert each embedded image. This reuses the object of the original object and thus replaces the image.
+Simple Wasm-Program to compress pdffiles with pictures in browser, based on pdfcpu. The programm replaces all images that are bigger than 1240x1754 are resized to this size and converted to JPG. This is done using pdfcpu. We decode, compress, delete and insert each embedded image. This reuses the object-id of the original object and thus replaces the image.
 
 ## Build
 ```
 go mod vendor
+sed -i 's/init(/init2(/g' vendor/github.com/pdfcpu/pdfcpu/pkg/font/metrics.go
 ```
- Deactivate the init function in `vendor/github.com/pdfcpu/pdfcpu/pkg/font/metrics.go`, otherwise the program can not start in WASM. This is caused initialy by a call to `User.Dir()`.
+ The last code deactivates the init function in `vendor/github.com/pdfcpu/pdfcpu/pkg/font/metrics.go`, otherwise the program can not start in Wasm. This is caused initialy by a call to `User.Dir()` and a subsequent `os.Exit(1)`.
 
 ```
 GOOS=js GOARCH=wasm go build -o pdfcomprezzor.wasm 
@@ -50,5 +51,6 @@ reader.readAsArrayBuffer(this.files[0]);
 
 Navigate to index.html and open a file, wait for compression...
 
-License: Apache 2.0 
+License: Apache 2.0
+
 (c) 2020, Henrik Reinstädtler
