@@ -1,67 +1,10 @@
 <html>
 <head>
 <meta charset="utf-8">
-<script>
-
-downloadBlob = function(data, fileName, mimeType) {
-  var blob, url;
-  blob = new Blob([data], {
-    type: mimeType
-  });
-  url = window.URL.createObjectURL(blob);
-  downloadURL(url, fileName);
-  setTimeout(function() {
-    return window.URL.revokeObjectURL(url);
-  }, 1000);
-};
-
-downloadURL = function(data, fileName) {
-  var a;
-  a = document.createElement('a');
-  a.href = data;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.style = 'display: none';
-  a.click();
-  a.remove();
-};
-    
-    function fn () {
-    document.querySelector('input').addEventListener('change', function() {
-    var array;
-  var reader = new FileReader();
-  reader.onload = function() {
-    let div = document.createElement( "div");
-	div.textContent ="Loaded File, Now executing, sadly no live-log";
-    document.querySelector("body").appendChild(div);
-    var arrayBuffer = this.result;
-    array = new Uint8Array(arrayBuffer);
-    console.log(array);
-    var l={l:0};
-    var worker = new Worker('worker.js');
-
-worker.addEventListener('message', function(e) {
-  console.log('Worker said: ', e);
-  if(e.data.type=="log"){
-  let div = document.createElement( "div");
-	div.textContent =e.data.message;
-    document.querySelector("body").appendChild(div);
-  } else if (e.data.type=="result"){
-   console.log(l);
-   alert(`TOOK: ${e.data.time}`)
-    downloadBlob(e.data.result,"smaller.pdf","application/pdf");
-    }
-}, false);
-worker.postMessage({array,l});
-  }
-  reader.readAsArrayBuffer(this.files[0]);
-
-}, false);
-}
-document.addEventListener('DOMContentLoaded', fn, false);
+<script src="test.js" type="text/javascript">
 </script>
 </head>
 <body>
-<input type="file" />
+<input type="file" multiple />
 <div id="result"></div></body>
 </html>

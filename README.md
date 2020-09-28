@@ -14,42 +14,16 @@ GOOS=js GOARCH=wasm go build -o pdfcomprezzor.wasm
 ```
 ## API
 ### using worker.js
- 
-```js
-var l={l:0};
-var worker = new Worker('worker.js');
 
-worker.addEventListener('message', function(e) {
-  console.log('Worker said: ', e);
-  if(e.data.type=="log"){
-  let div = document.createElement( "div");
-	div.textContent =e.data.message;
-    document.querySelector("body").appendChild(div);
-  } else if (e.data.type=="result"){
-   console.log(l);
-   alert(`TOOK: ${e.data.time}`)
-    downloadBlob(e.data.result,"smaller.pdf","application/pdf");
-    }
-}, false);
-worker.postMessage({array,l});
-```
-where array is a Uint8Array containing the pdf file. You could load it, via 
-
-```js
-var reader = new FileReader();
-reader.onload = function() {
-    var arrayBuffer = this.result;
-    array = new Uint8Array(arrayBuffer);
-    // code from above....
-  };
-reader.readAsArrayBuffer(this.files[0]);
-```
+See test.js
 
 ## Running the example
 
  Serve the files with a server, that supports mime-type `application/wasm`
 
 Navigate to index.html and open a file, wait for compression...
+
+If you select two files or more,  they will be merged.
 
 License: Apache 2.0
 

@@ -87,7 +87,7 @@ func Log(a ...interface{}) {
 
 var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 	LogCallback = args[len(args)-1:][0]
-	Log("called")
+	Log("pdfcomprezzor/compress")
 	Log("File size in Bytes:", args[0].Get("length").Int())
 	array := make([]byte, args[0].Get("length").Int())
 	js.CopyBytesToGo(array, args[0])
@@ -136,12 +136,40 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 	Log("Write file...")
 	wr := new(bytes.Buffer)
 	api.WriteContext(ctx, wr)
-	js.CopyBytesToJS(args[0], wr.Bytes())
-	args[1].Set("l", len(wr.Bytes()))
-	return len(wr.Bytes())
+	Bytes = wr.Bytes()
+	return len(Bytes)
+})
+var Bytes []byte
+var onMerge = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	LogCallback = args[len(args)-1:][0]
+	Log("pdfcomprezzor/Merge")
+	Log("Files in Array: ", args[0].Length())
+	files := make([]*bytes.Reader, args[0].Length())
+	for i := 0; i < len(files); i++ {
+		array := make([]byte, args[0].Index(i).Length())
+		js.CopyBytesToGo(array, args[0].Index(i))
+		files[i] = bytes.NewReader(array)
+	}
+	seekers := make([]io.ReadSeeker, len(files))
+	for i, f := range files {
+		seekers[i] = f
+	}
+	wr := new(bytes.Buffer)
+	api.Merge(seekers, wr, nil)
+	Log("Write file...")
+	Bytes = wr.Bytes()
+	return len(Bytes)
+})
+
+//onReadBack, reads back value to JS.
+var onReadBack = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	js.CopyBytesToJS(args[0], Bytes)
+	return 0
 })
 
 func main() {
 	js.Global().Set("compress", onCompress)
+	js.Global().Set("merge", onMerge)
+	js.Global().Set("readBack", onReadBack)
 	<-done
 }
