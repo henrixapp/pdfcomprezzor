@@ -4,12 +4,6 @@ Simple Wasm-Program to compress pdffiles with pictures in browser, based on pdfc
 
 ## Build
 ```
-go mod vendor
-sed -i 's/init(/init2(/g' vendor/github.com/pdfcpu/pdfcpu/pkg/font/metrics.go
-```
- The last code deactivates the init function in `vendor/github.com/pdfcpu/pdfcpu/pkg/font/metrics.go`, otherwise the program can not start in Wasm. This is caused initialy by a call to `User.Dir()` and a subsequent `os.Exit(1)`.
-
-```
 GOOS=js GOARCH=wasm go build -o pdfcomprezzor.wasm 
 ```
 ## API
