@@ -168,6 +168,7 @@ var onReadBack = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 })
 
 func main() {
+	pdfcpu.ConfigPath = "disable"
 	js.Global().Set("compress", onCompress)
 	js.Global().Set("merge", onMerge)
 	js.Global().Set("readBack", onReadBack)
