@@ -60,16 +60,15 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			}
 			if img.Bounds().Dx() > 1000 {
 				Log(fmt.Sprint("Compress this image", objs[idx], "....."))
-				smaller := resize.Thumbnail(124, 174, img, resize.Lanczos2)
+				smaller := resize.Thumbnail(1240, 1740, img, resize.Lanczos2)
 				Log(smaller.Bounds().Dx(), img.Bounds().Dx())
-				obj, err := ctx.FindObject(objs[idx])
+				obj, _ := ctx.Find(objs[idx])
 				if err != nil {
 					Log("e", err)
 				}
-				Log(obj)
-				ir, ok := obj.(pdfcpu.IndirectRef)
-				Log(ok, ir)
-				err = ctx.DeleteObjectGraph(obj)
+				ind := pdfcpu.NewIndirectRef(objs[idx], *obj.Generation)
+				Log(*ind)
+				err = ctx.DeleteObjectGraph(*ind)
 				if err != nil {
 					Log("e", err)
 				}
@@ -79,6 +78,7 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 					Log("Error enconding", err)
 				}
 				indRef, w, h, err := pdfcpu.CreateImageResource(ctx.XRefTable, buf, false, false)
+				Log(indRef)
 				if err != nil {
 					Log("Error CreateImageResource ", err, w, h, indRef)
 				}
