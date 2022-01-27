@@ -62,37 +62,30 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 				Log(fmt.Sprint("Compress this image", objs[idx], "....."))
 				smaller := resize.Thumbnail(1240, 1740, img, resize.Lanczos2)
 				Log(smaller.Bounds().Dx(), img.Bounds().Dx())
-				obj, _ := ctx.Find(objs[idx])
+				//obj, _ := ctx.Find(objs[idx])
+				//obj, _ := ctx.Optimize.ImageObjects[objs[idx]]
 				if err != nil {
 					Log("e", err)
 				}
-				ind := pdfcpu.NewIndirectRef(objs[idx], *obj.Generation)
-				Log(*ind)
-				err = ctx.DeleteObjectGraph(*ind)
+
 				if err != nil {
 					Log("e", err)
 				}
 				buf := new(bytes.Buffer)
-				err = png.Encode(buf, smaller)
-				if err != nil {
-					Log("Error enconding", err)
-				}
-				indRef, w, h, err := pdfcpu.CreateImageResource(ctx.XRefTable, buf, false, false)
-				Log(indRef)
-				if err != nil {
-					Log("Error CreateImageResource ", err, w, h, indRef)
-				}
-				//images[len(images)-1].Ref, _, _, _ = createImageResource(ctx.XRefTable, buf)
+				png.Encode(buf, smaller)
+				sd2, _, _, _ := pdfcpu.CreateImageStreamDict(ctx.XRefTable, buf, false, false)
+				ctx.XRefTable.Table[objs[idx]].Object = *sd2
 			}
 		}
 	}
 	pdfcpu.OptimizeXRefTable(ctx)
-	api.OptimizeContext(ctx)
+	//api.OptimizeContext(ctx)
 	ctx.EnsureVersionForWriting()
 	Log("Write file...")
 	wr := new(bytes.Buffer)
-	api.WriteContext(ctx, wr)
+	err = api.WriteContext(ctx, wr)
 	Bytes = wr.Bytes()
+	Log(len(Bytes), " Bytes")
 	return len(Bytes)
 })
 var Bytes []byte
