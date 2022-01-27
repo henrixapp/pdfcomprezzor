@@ -1,76 +1,17 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"image"
-	"image/jpeg"
+	"image/png"
 	"io"
-	"io/ioutil"
-	"log"
 	"syscall/js"
 
 	"github.com/nfnt/resize"
 	api "github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 )
-
-type CompressedImage struct {
-	ObjNr int
-	Image image.Image
-	Ref   *pdfcpu.IndirectRef
-}
-
-//bit hacky, because was not marked for export
-func createImageResource(xRefTable *pdfcpu.XRefTable, r io.Reader) (*pdfcpu.IndirectRef, int, int, error) {
-
-	bb, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-
-	var sd *pdfcpu.StreamDict
-	r = bytes.NewReader(bb)
-
-	// We identify JPG via its magic bytes.
-	if bytes.HasPrefix(bb, []byte("\xff\xd8")) {
-		// Process JPG by wrapping byte stream into DCTEncoded object stream.
-		c, _, err := image.DecodeConfig(r)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-
-		sd, err = pdfcpu.ReadJPEG(xRefTable, bb, c)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-
-	} else {
-		// Process other formats by decoding into an image
-		// and subsequent object stream encoding,
-		/*img, _, err := image.Decode(r)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-
-		sd, err = imgToImageDict(xRefTable, img)
-		if err != nil {
-			return nil, 0, 0, err
-		}*/
-		log.Panicln("not supported")
-	}
-
-	w := *sd.IntEntry("Width")
-	h := *sd.IntEntry("Height")
-
-	indRef, err := xRefTable.IndRefForNewObject(*sd)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-
-	return indRef, w, h, nil
-}
 
 var done = make(chan struct{})
 
@@ -100,43 +41,51 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 	ctx.EnsurePageCount()
 	count := ctx.PageCount
 	pdfcpu.OptimizeXRefTable(ctx)
+	api.OptimizeContext(ctx)
 	Log("Page count:", count)
-	images := make([]CompressedImage, 0)
 
 	for i := 1; i <= count; i++ {
 		Log("Processing page no:", i)
 		imageObjNrs := ctx.ImageObjNrs(i)
 		Log("Images on page:", len(imageObjNrs))
-		for _, objNr := range imageObjNrs {
-			imageF, _ := ctx.ExtractImage(objNr)
-			image1, format, err := image.Decode(imageF)
-			Log("Image format:", format)
+		images, err := ctx.ExtractPageImages(i, false)
+		if err != nil {
+			Log("e", err)
+		}
+		objs := ctx.ImageObjNrs(i)
+		for idx, i := range images {
+			img, _, err := image.Decode(i)
 			if err != nil {
 				Log("e", err)
 			}
-			Log("Image size:", image1.Bounds().Dx(), image1.Bounds().Dy())
-			if image1.Bounds().Dx() > 1000 {
-				Log("Compress this image.....")
-				smaller := resize.Thumbnail(1240, 1754, image1, resize.Lanczos2)
-				var b bytes.Buffer
-				w := bufio.NewWriter(&b)
-				err := jpeg.Encode(w, smaller, nil)
-				images = append(images, CompressedImage{ObjNr: objNr})
+			if img.Bounds().Dx() > 1000 {
+				Log(fmt.Sprint("Compress this image", objs[idx], "....."))
+				smaller := resize.Thumbnail(1240, 1740, img, resize.Lanczos2)
+				Log(smaller.Bounds().Dx(), img.Bounds().Dx())
+				//obj, _ := ctx.Find(objs[idx])
+				//obj, _ := ctx.Optimize.ImageObjects[objs[idx]]
 				if err != nil {
-					Log("Error enconding", err)
+					Log("e", err)
 				}
-				ctx.DeleteObject(objNr)
+
+				if err != nil {
+					Log("e", err)
+				}
 				buf := new(bytes.Buffer)
-				err = jpeg.Encode(buf, smaller, nil)
-				images[len(images)-1].Ref, _, _, _ = createImageResource(ctx.XRefTable, buf)
+				png.Encode(buf, smaller)
+				sd2, _, _, _ := pdfcpu.CreateImageStreamDict(ctx.XRefTable, buf, false, false)
+				ctx.XRefTable.Table[objs[idx]].Object = *sd2
 			}
 		}
 	}
+	pdfcpu.OptimizeXRefTable(ctx)
+	//api.OptimizeContext(ctx)
 	ctx.EnsureVersionForWriting()
 	Log("Write file...")
 	wr := new(bytes.Buffer)
-	api.WriteContext(ctx, wr)
+	err = api.WriteContext(ctx, wr)
 	Bytes = wr.Bytes()
+	Log(len(Bytes), " Bytes")
 	return len(Bytes)
 })
 var Bytes []byte
