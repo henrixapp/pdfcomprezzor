@@ -1,4 +1,4 @@
-FROM golang:1.17 AS build-pdfcomprezzor
+FROM golang:1.20 AS build-pdfcomprezzor
 WORKDIR /go/src
 COPY go.mod .
 COPY go.sum .
