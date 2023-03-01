@@ -11,6 +11,7 @@ import (
 	"github.com/nfnt/resize"
 	api "github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
 var done = make(chan struct{})
@@ -33,7 +34,7 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 	array := make([]byte, args[0].Get("length").Int())
 	js.CopyBytesToGo(array, args[0])
 	buffi := bytes.NewReader(array)
-	ctx, err := pdfcpu.Read(buffi, pdfcpu.NewDefaultConfiguration())
+	ctx, err := pdfcpu.Read(buffi, model.NewDefaultConfiguration())
 	if err != nil {
 		Log("Error while loading file", err)
 	}
@@ -46,13 +47,13 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 
 	for i := 1; i <= count; i++ {
 		Log("Processing page no:", i)
-		imageObjNrs := ctx.ImageObjNrs(i)
+		imageObjNrs := pdfcpu.ImageObjNrs(ctx, i)
 		Log("Images on page:", len(imageObjNrs))
-		images, err := ctx.ExtractPageImages(i, false)
+		images, err := pdfcpu.ExtractPageImages(ctx, i, false)
 		if err != nil {
 			Log("e", err)
 		}
-		objs := ctx.ImageObjNrs(i)
+		objs := pdfcpu.ImageObjNrs(ctx, i)
 		for idx, i := range images {
 			img, _, err := image.Decode(i)
 			if err != nil {
@@ -73,7 +74,7 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 				}
 				buf := new(bytes.Buffer)
 				png.Encode(buf, smaller)
-				sd2, _, _, _ := pdfcpu.CreateImageStreamDict(ctx.XRefTable, buf, false, false)
+				sd2, _, _, _ := model.CreateImageStreamDict(ctx.XRefTable, buf, false, false)
 				ctx.XRefTable.Table[objs[idx]].Object = *sd2
 			}
 		}
@@ -117,7 +118,7 @@ var onReadBack = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 })
 
 func main() {
-	pdfcpu.ConfigPath = "disable"
+	model.ConfigPath = "disable"
 	js.Global().Set("compress", onCompress)
 	js.Global().Set("merge", onMerge)
 	js.Global().Set("readBack", onReadBack)
