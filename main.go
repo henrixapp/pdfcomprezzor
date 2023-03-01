@@ -105,7 +105,7 @@ var onMerge = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		seekers[i] = f
 	}
 	wr := new(bytes.Buffer)
-	api.Merge(seekers, wr, nil)
+	api.MergeRaw(seekers, wr, nil)
 	Log("Write file...")
 	Bytes = wr.Bytes()
 	return len(Bytes)
