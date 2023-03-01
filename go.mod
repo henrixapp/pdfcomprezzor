@@ -6,6 +6,7 @@ go 1.16
 
 require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pdfcpu/pdfcpu v0.3.13
+	github.com/pdfcpu/pdfcpu v0.4.0
+	github.com/rivo/uniseg v0.4.4 // indirect
 	golang.org/x/image v0.5.0 // indirect
 )
