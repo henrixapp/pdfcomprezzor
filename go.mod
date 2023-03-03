@@ -6,8 +6,6 @@ go 1.16
 
 require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pdfcpu/pdfcpu v0.4.0
-	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/pdfcpu/pdfcpu v0.4.1-0.20230303002101-25f7cef787b1
 )
 
-replace github.com/pdfcpu/pdfcpu => github.com/christian-heusel/pdfcpu v0.4.0
