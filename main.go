@@ -53,18 +53,15 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if err != nil {
 			Log("e", err)
 		}
-		objs := pdfcpu.ImageObjNrs(ctx, i)
 		for idx, i := range images {
 			img, _, err := image.Decode(i)
 			if err != nil {
 				Log("e", err)
 			}
 			if img.Bounds().Dx() > 1000 {
-				Log(fmt.Sprint("Compress this image", objs[idx], "....."))
+				Log(fmt.Sprint("Compress this image with id", idx, "....."))
 				smaller := resize.Thumbnail(1240, 1740, img, resize.Lanczos2)
 				Log(smaller.Bounds().Dx(), img.Bounds().Dx())
-				//obj, _ := ctx.Find(objs[idx])
-				//obj, _ := ctx.Optimize.ImageObjects[objs[idx]]
 				if err != nil {
 					Log("e", err)
 				}
@@ -75,7 +72,7 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 				buf := new(bytes.Buffer)
 				png.Encode(buf, smaller)
 				sd2, _, _, _ := model.CreateImageStreamDict(ctx.XRefTable, buf, false, false)
-				ctx.XRefTable.Table[objs[idx]].Object = *sd2
+				ctx.XRefTable.Table[idx].Object = *sd2
 			}
 		}
 	}
