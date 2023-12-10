@@ -57,6 +57,8 @@ var onCompress = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			img, _, err := image.Decode(i)
 			if err != nil {
 				Log("e", err)
+				// We just skip images that we cannot decode
+				continue
 			}
 			if img.Bounds().Dx() > 1000 {
 				Log(fmt.Sprint("Compress this image with id", idx, "....."))
@@ -102,7 +104,7 @@ var onMerge = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		seekers[i] = f
 	}
 	wr := new(bytes.Buffer)
-	api.MergeRaw(seekers, wr, nil)
+	api.MergeRaw(seekers, wr, false, nil)
 	Log("Write file...")
 	Bytes = wr.Bytes()
 	return len(Bytes)
